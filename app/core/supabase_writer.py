@@ -33,27 +33,33 @@ def _upload_foto(client: Client, codintfunc: str, imagem_bytes: bytes) -> str | 
     bucket = cfg["bucket_fotos"]
     path = _foto_path(codintfunc)
     try:
-        # tenta upload; se já existe, faz update
-        try:
-            client.storage.from_(bucket).upload(
-                path=path,
-                file=imagem_bytes,
-                file_options={"content-type": "image/jpeg"},
-            )
-        except Exception:
-            client.storage.from_(bucket).update(
-                path=path,
-                file=imagem_bytes,
-                file_options={"content-type": "image/jpeg"},
-            )
+        client.storage.from_(bucket).upload(
+            path=path,
+            file=imagem_bytes,
+            file_options={"content-type": "image/jpeg"},
+        )
         return _foto_url_publica(client, path)
     except Exception:
         return None
 
 
+def _buscar_fotos_existentes(client: Client) -> set[str]:
+    """Retorna o set de codintfunc que já têm foto_url salva no Supabase."""
+    try:
+        res = client.table("stg_funcionarios").select("codintfunc").not_.is_("foto_url", "null").execute()
+        return {r["codintfunc"] for r in res.data}
+    except Exception:
+        return set()
+
+
 def upsert_funcionarios(registros: list[dict], log_fn=None) -> dict:
     client = _get_client()
     resultado = {"total": len(registros), "enviados": 0, "erros": 0, "sem_foto": 0}
+
+    # busca quais já têm foto salva — não faz upload novamente
+    fotos_existentes = _buscar_fotos_existentes(client)
+    if log_fn:
+        log_fn(f"  {len(fotos_existentes)} funcionários já têm foto no Storage — serão ignorados")
 
     linhas = []
     for rec in registros:
@@ -62,9 +68,13 @@ def upsert_funcionarios(registros: list[dict], log_fn=None) -> dict:
 
         foto_url = None
         if imagem_bytes and isinstance(imagem_bytes, (bytes, bytearray)):
-            foto_url = _upload_foto(client, codintfunc, bytes(imagem_bytes))
-            if foto_url is None and log_fn:
-                log_fn(f"[AVISO] Falha no upload da foto: {codintfunc}")
+            if codintfunc in fotos_existentes:
+                # já tem foto — usa a URL existente sem re-upload
+                foto_url = _foto_url_publica(client, _foto_path(codintfunc))
+            else:
+                foto_url = _upload_foto(client, codintfunc, bytes(imagem_bytes))
+                if foto_url is None and log_fn:
+                    log_fn(f"[AVISO] Falha no upload da foto: {codintfunc}")
         else:
             resultado["sem_foto"] += 1
 
