@@ -12,7 +12,7 @@ echo Diretorio do projeto: %PROJETO_DIR%
 echo Script: %SCRIPT%
 echo.
 
-schtasks /Create /F /TN "AtualizadorGlobus_funcionarios" /TR "cmd /c \"%SCRIPT%\" --table funcionarios" /SC DAILY /ST "01:00" /RL HIGHEST
+schtasks /Create /F /TN "AtualizadorSTGGlobus" /TR "cmd /c \"%SCRIPT%\" --table funcionarios" /SC DAILY /ST "01:00" /RL HIGHEST
 
 if %ERRORLEVEL% == 0 (
     echo [OK] AtualizadorGlobus_funcionarios - diario as 01:00
