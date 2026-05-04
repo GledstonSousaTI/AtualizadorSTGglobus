@@ -1,0 +1,22 @@
+# Ambiente virtual
+.venv/
+
+# PyInstaller
+dist/
+build/
+*.spec
+
+# Credenciais — nunca commitar
+app/config/config.json
+
+# Logs
+logs/sync.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Windows
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,5 @@
+oracledb>=2.0
+supabase>=2.0
+customtkinter>=5.2
+Pillow
+pyinstaller

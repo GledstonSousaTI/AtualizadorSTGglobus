@@ -1,0 +1,32 @@
+{
+  "oracle": {
+    "host": "",
+    "port": 1521,
+    "service": "",
+    "user": "",
+    "password": ""
+  },
+  "supabase": {
+    "url": "",
+    "anon_key": "",
+    "service_key": ""
+  },
+  "tabelas": [
+    {
+      "id": "funcionarios",
+      "nome_oracle": "VW_FUNCIONARIOS",
+      "nome_supabase": "stg_funcionarios",
+      "pk": "codintfunc",
+      "ativo": true,
+      "horario": "01:00",
+      "filtros": {
+        "CODIGOEMPRESA": 1,
+        "CODIGOFL": 1
+      }
+    }
+  ],
+  "storage": {
+    "bucket_fotos": "funcionarios",
+    "pasta_fotos": "fotos"
+  }
+}
