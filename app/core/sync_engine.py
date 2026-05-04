@@ -16,6 +16,7 @@ from app.config import config_manager
 from app.core import globus_reader, supabase_writer
 
 LOG_PATH = Path(__file__).parent.parent.parent / "logs" / "sync.log"
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
