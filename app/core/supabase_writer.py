@@ -44,10 +44,24 @@ def _upload_foto(client: Client, codintfunc: str, imagem_bytes: bytes) -> str | 
 
 
 def _buscar_fotos_existentes(client: Client) -> set[str]:
-    """Retorna o set de codintfunc que já têm foto_url salva no Supabase."""
+    """Retorna o set de codintfunc que já têm foto_url salva no Supabase (sem limite de paginação)."""
     try:
-        res = client.table("stg_funcionarios").select("codintfunc").not_.is_("foto_url", "null").execute()
-        return {r["codintfunc"] for r in res.data}
+        todos = []
+        PAGINA = 1000
+        offset = 0
+        while True:
+            res = (
+                client.table("stg_funcionarios")
+                .select("codintfunc")
+                .not_.is_("foto_url", "null")
+                .range(offset, offset + PAGINA - 1)
+                .execute()
+            )
+            todos.extend(res.data)
+            if len(res.data) < PAGINA:
+                break
+            offset += PAGINA
+        return {r["codintfunc"] for r in todos}
     except Exception:
         return set()
 
