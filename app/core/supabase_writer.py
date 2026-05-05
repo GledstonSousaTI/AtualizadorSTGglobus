@@ -165,7 +165,15 @@ def upsert_fichamedica(registros: list[dict], log_fn=None) -> dict:
     client = _get_client()
     if log_fn:
         log_fn(f"  Preparando {len(registros)} registros de ficha médica...")
-    linhas = [_serializar(r) | {"updated_at": datetime.now(timezone.utc).isoformat()} for r in registros]
+    linhas = []
+    for r in registros:
+        linha = _serializar(r) | {"updated_at": datetime.now(timezone.utc).isoformat()}
+        # codocorr faz parte da PK — não pode ser NULL
+        if linha.get("codocorr") is None:
+            linha["codocorr"] = 0
+        # codintfunc como string
+        linha["codintfunc"] = str(linha["codintfunc"])
+        linhas.append(linha)
     return _upsert_lotes(client, "stg_fichamedica", "codintfunc,datafichamed,codocorr", linhas, log_fn)
 
 
@@ -173,7 +181,13 @@ def upsert_fichamedica_exames(registros: list[dict], log_fn=None) -> dict:
     client = _get_client()
     if log_fn:
         log_fn(f"  Preparando {len(registros)} registros de exames...")
-    linhas = [_serializar(r) | {"updated_at": datetime.now(timezone.utc).isoformat()} for r in registros]
+    vistos = {}
+    for r in registros:
+        linha = _serializar(r) | {"updated_at": datetime.now(timezone.utc).isoformat()}
+        linha["codintfunc"] = str(linha["codintfunc"])
+        chave = (linha["codintfunc"], str(linha.get("datafichamed")), str(linha.get("codtipoexa")))
+        vistos[chave] = linha
+    linhas = list(vistos.values())
     return _upsert_lotes(client, "stg_fichamedica_exames", "codintfunc,datafichamed,codtipoexa", linhas, log_fn)
 
 
@@ -181,7 +195,11 @@ def upsert_afastamentos(registros: list[dict], log_fn=None) -> dict:
     client = _get_client()
     if log_fn:
         log_fn(f"  Preparando {len(registros)} registros de afastamentos...")
-    linhas = [_serializar(r) | {"updated_at": datetime.now(timezone.utc).isoformat()} for r in registros]
+    linhas = []
+    for r in registros:
+        linha = _serializar(r) | {"updated_at": datetime.now(timezone.utc).isoformat()}
+        linha["codintfunc"] = str(linha["codintfunc"])
+        linhas.append(linha)
     return _upsert_lotes(client, "stg_afastamentos", "codintfunc,dtafast", linhas, log_fn)
 
 
