@@ -18,13 +18,19 @@ from app.core import globus_reader, supabase_writer
 LOG_PATH = Path(__file__).parent.parent.parent / "logs" / "sync.log"
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+_handlers = [logging.FileHandler(LOG_PATH, encoding="utf-8")]
+if sys.stdout and hasattr(sys.stdout, "fileno"):
+    try:
+        _handlers.append(
+            logging.StreamHandler(open(sys.stdout.fileno(), mode="w", encoding="utf-8", closefd=False))
+        )
+    except Exception:
+        _handlers.append(logging.StreamHandler(sys.stdout))
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_PATH, encoding="utf-8"),
-        logging.StreamHandler(open(sys.stdout.fileno(), mode="w", encoding="utf-8", closefd=False)),
-    ],
+    handlers=_handlers,
 )
 logger = logging.getLogger("sync_engine")
 
