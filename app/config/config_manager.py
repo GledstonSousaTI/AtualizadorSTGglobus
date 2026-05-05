@@ -65,3 +65,19 @@ def remover_tabela(tabela_id: str) -> None:
     cfg = load()
     cfg["tabelas"] = [t for t in cfg.get("tabelas", []) if t["id"] != tabela_id]
     save(cfg)
+
+
+def get_ultimo_sync(tabela_id: str) -> str | None:
+    """Retorna a data ISO do último sync bem-sucedido da tabela, ou None."""
+    tab = get_tabela(tabela_id)
+    return tab.get("ultimo_sync") if tab else None
+
+
+def salvar_ultimo_sync(tabela_id: str, dt_iso: str) -> None:
+    """Salva a data do último sync bem-sucedido no config.json."""
+    cfg = load()
+    for tab in cfg.get("tabelas", []):
+        if tab["id"] == tabela_id:
+            tab["ultimo_sync"] = dt_iso
+            break
+    save(cfg)

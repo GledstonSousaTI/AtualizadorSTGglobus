@@ -92,17 +92,34 @@ def sincronizar_tabela_generica(tabela_cfg: dict, log_fn=None) -> dict:
         return {"tabela": nome_supabase, "status": "erro", "detalhe": str(e)}
 
 
-def _sync_simples(tabela_id: str, label: str, reader_fn, writer_fn, log_fn=None) -> dict:
-    _log(f"Iniciando sync: {label} (Oracle -> Supabase)", log_fn)
+def _sync_incremental(tabela_id: str, label: str, reader_fn, writer_fn, log_fn=None) -> dict:
+    """
+    Sync com suporte a incremental: busca só registros após o último sync bem-sucedido.
+    Salva a data atual como ultimo_sync após sucesso.
+    """
+    desde = config_manager.get_ultimo_sync(tabela_id)
+    if desde:
+        _log(f"Iniciando sync incremental: {label} — desde {desde}", log_fn)
+    else:
+        _log(f"Iniciando sync completo: {label} (primeiro sync)", log_fn)
+
     try:
-        registros = reader_fn()
+        registros = reader_fn(desde=desde)
         _log(f"  {len(registros)} registros lidos do Oracle", log_fn)
     except Exception as e:
         _log(f"[ERRO] Leitura Oracle: {e}", log_fn)
         return {"tabela": tabela_id, "status": "erro", "detalhe": str(e)}
+
+    if not registros:
+        _log("  Nenhum registro novo. Sync ignorado.", log_fn)
+        config_manager.salvar_ultimo_sync(tabela_id, datetime.now().strftime("%Y-%m-%d"))
+        return {"tabela": tabela_id, "status": "ok", "total": 0, "enviados": 0, "erros": 0}
+
     try:
         resultado = writer_fn(registros, log_fn=log_fn)
         _log(f"  Resultado: {resultado['enviados']}/{resultado['total']} enviados | {resultado['erros']} erros", log_fn)
+        if resultado["erros"] == 0:
+            config_manager.salvar_ultimo_sync(tabela_id, datetime.now().strftime("%Y-%m-%d"))
         return {"tabela": tabela_id, "status": "ok", **resultado}
     except Exception as e:
         _log(f"[ERRO] Escrita Supabase: {e}", log_fn)
@@ -110,17 +127,17 @@ def _sync_simples(tabela_id: str, label: str, reader_fn, writer_fn, log_fn=None)
 
 
 def sincronizar_fichamedica(log_fn=None) -> dict:
-    return _sync_simples("fichamedica", "stg_fichamedica",
+    return _sync_incremental("fichamedica", "stg_fichamedica",
         globus_reader.buscar_fichamedica, supabase_writer.upsert_fichamedica, log_fn)
 
 
 def sincronizar_fichamedica_exames(log_fn=None) -> dict:
-    return _sync_simples("fichamedica_exames", "stg_fichamedica_exames",
+    return _sync_incremental("fichamedica_exames", "stg_fichamedica_exames",
         globus_reader.buscar_fichamedica_exames, supabase_writer.upsert_fichamedica_exames, log_fn)
 
 
 def sincronizar_afastamentos(log_fn=None) -> dict:
-    return _sync_simples("afastamentos", "stg_afastamentos",
+    return _sync_incremental("afastamentos", "stg_afastamentos",
         globus_reader.buscar_afastamentos, supabase_writer.upsert_afastamentos, log_fn)
 
 
