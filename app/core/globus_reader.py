@@ -86,6 +86,123 @@ def buscar_funcionarios() -> list[dict]:
             return rows
 
 
+def buscar_fichamedica() -> list[dict]:
+    """Retorna todos os registros de ficha médica com CID e médico."""
+    sql = """
+        SELECT
+            a.CODINTFUNC,
+            a.DATAFICHAMED,
+            a.CODOCORR,
+            a.CODCID,
+            t.DESCCID,
+            a.NRDIASATESTMED,
+            a.NRHORASATESTMED,
+            a.ATEST_HORAINI,
+            a.ATEST_HORAFIN,
+            a.HISTORICOFICHAMED,
+            a.TIPOATESTFICHAMED,
+            a.TIPOCONSULTA,
+            a.CRMMEDICOEXTERNO,
+            c.NOMEMEDICO,
+            a.ASO_TPEXAME,
+            a.ASO_APTO,
+            a.ASO_RISCOS,
+            a.ASO_RISCO_SEM,
+            a.ASO_RISCO_QUI,
+            a.ASO_RISCO_FIS,
+            a.ASO_RISCO_BIO,
+            a.ASO_RISCO_ERG,
+            a.ASO_RISCO_ACI
+        FROM SRH_FICHAMEDICA a
+        LEFT JOIN SRH_CRM c ON a.CRMMEDICOEXTERNO = c.CODCRM AND c.TP_REGISTRO = 0
+        LEFT JOIN FRQ_CID t ON a.CODCID = t.CODCID
+        ORDER BY a.CODINTFUNC, a.DATAFICHAMED
+    """
+    with _get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            cols = [d[0].lower() for d in cur.description]
+            rows = []
+            for row in cur:
+                rec = {}
+                for i, col in enumerate(cols):
+                    val = row[i]
+                    if hasattr(val, "strftime"):
+                        val = val.strftime("%Y-%m-%d %H:%M:%S") if hasattr(val, "hour") else val.strftime("%Y-%m-%d")
+                    rec[col] = val
+                rows.append(rec)
+            return rows
+
+
+def buscar_fichamedica_exames() -> list[dict]:
+    """Retorna exames vinculados às fichas médicas com descrição do tipo."""
+    sql = """
+        SELECT
+            e.CODINTFUNC,
+            e.DATAFICHAMED,
+            e.CODTIPOEXA,
+            t.DESCTIPOEXA,
+            e.RESULTADOEXAME,
+            e.DTREALIZOUEXAME,
+            e.DTPROXEXAMEDIGIT,
+            e.HISTORICOEXA,
+            e.OBSERVACAOEXA,
+            e.INDRESULT
+        FROM SRH_FICHAMEDICA_EXAMES e
+        LEFT JOIN SRH_TIPOEXAME t ON e.CODTIPOEXA = t.CODTIPOEXA
+        ORDER BY e.CODINTFUNC, e.DATAFICHAMED
+    """
+    with _get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            cols = [d[0].lower() for d in cur.description]
+            rows = []
+            for row in cur:
+                rec = {}
+                for i, col in enumerate(cols):
+                    val = row[i]
+                    if hasattr(val, "strftime"):
+                        val = val.strftime("%Y-%m-%d")
+                    rec[col] = val
+                rows.append(rec)
+            return rows
+
+
+def buscar_afastamentos() -> list[dict]:
+    """Retorna afastamentos (INSS, perícia, acidente) com CID."""
+    sql = """
+        SELECT
+            a.CODINTFUNC,
+            a.DTAFAST,
+            a.DTRETAFAST,
+            a.CODCID,
+            t.DESCCID,
+            a.NRBENEFICIO,
+            a.ESPECIE,
+            a.DTPERICIA,
+            a.DTPREVRETORNO,
+            a.NOMEMEDICO,
+            a.CODCRM
+        FROM FLP_AFASTADOS a
+        LEFT JOIN FRQ_CID t ON a.CODCID = t.CODCID
+        ORDER BY a.CODINTFUNC, a.DTAFAST
+    """
+    with _get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            cols = [d[0].lower() for d in cur.description]
+            rows = []
+            for row in cur:
+                rec = {}
+                for i, col in enumerate(cols):
+                    val = row[i]
+                    if hasattr(val, "strftime"):
+                        val = val.strftime("%Y-%m-%d")
+                    rec[col] = val
+                rows.append(rec)
+            return rows
+
+
 def buscar_tabela_generica(nome_oracle: str, filtros: dict | None = None) -> list[dict]:
     """
     Leitura genérica de qualquer tabela/view Oracle.

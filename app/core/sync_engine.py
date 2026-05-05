@@ -92,6 +92,38 @@ def sincronizar_tabela_generica(tabela_cfg: dict, log_fn=None) -> dict:
         return {"tabela": nome_supabase, "status": "erro", "detalhe": str(e)}
 
 
+def _sync_simples(tabela_id: str, label: str, reader_fn, writer_fn, log_fn=None) -> dict:
+    _log(f"Iniciando sync: {label} (Oracle -> Supabase)", log_fn)
+    try:
+        registros = reader_fn()
+        _log(f"  {len(registros)} registros lidos do Oracle", log_fn)
+    except Exception as e:
+        _log(f"[ERRO] Leitura Oracle: {e}", log_fn)
+        return {"tabela": tabela_id, "status": "erro", "detalhe": str(e)}
+    try:
+        resultado = writer_fn(registros, log_fn=log_fn)
+        _log(f"  Resultado: {resultado['enviados']}/{resultado['total']} enviados | {resultado['erros']} erros", log_fn)
+        return {"tabela": tabela_id, "status": "ok", **resultado}
+    except Exception as e:
+        _log(f"[ERRO] Escrita Supabase: {e}", log_fn)
+        return {"tabela": tabela_id, "status": "erro", "detalhe": str(e)}
+
+
+def sincronizar_fichamedica(log_fn=None) -> dict:
+    return _sync_simples("fichamedica", "stg_fichamedica",
+        globus_reader.buscar_fichamedica, supabase_writer.upsert_fichamedica, log_fn)
+
+
+def sincronizar_fichamedica_exames(log_fn=None) -> dict:
+    return _sync_simples("fichamedica_exames", "stg_fichamedica_exames",
+        globus_reader.buscar_fichamedica_exames, supabase_writer.upsert_fichamedica_exames, log_fn)
+
+
+def sincronizar_afastamentos(log_fn=None) -> dict:
+    return _sync_simples("afastamentos", "stg_afastamentos",
+        globus_reader.buscar_afastamentos, supabase_writer.upsert_afastamentos, log_fn)
+
+
 def run(tabela_id: str | None = None, log_fn=None) -> list[dict]:
     """
     Executa a sincronização.
@@ -110,10 +142,18 @@ def run(tabela_id: str | None = None, log_fn=None) -> list[dict]:
         _log("Nenhuma tabela ativa encontrada.", log_fn)
         return []
 
+    _SYNC_ESPECIALIZADOS = {
+        "funcionarios": sincronizar_funcionarios,
+        "fichamedica": sincronizar_fichamedica,
+        "fichamedica_exames": sincronizar_fichamedica_exames,
+        "afastamentos": sincronizar_afastamentos,
+    }
+
     resultados = []
     for tab in tabelas_ativas:
-        if tab["id"] == "funcionarios":
-            res = sincronizar_funcionarios(log_fn)
+        fn = _SYNC_ESPECIALIZADOS.get(tab["id"])
+        if fn:
+            res = fn(log_fn)
         else:
             res = sincronizar_tabela_generica(tab, log_fn)
         resultados.append(res)

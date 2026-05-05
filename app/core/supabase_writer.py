@@ -131,6 +131,60 @@ def upsert_funcionarios(registros: list[dict], log_fn=None) -> dict:
     return resultado
 
 
+def _upsert_lotes(client, tabela: str, pk: str, linhas: list[dict], log_fn=None) -> dict:
+    """Upsert genérico em lotes de 200 com PK simples ou composta."""
+    resultado = {"total": len(linhas), "enviados": 0, "erros": 0}
+    LOTE = 200
+    for i in range(0, len(linhas), LOTE):
+        lote = linhas[i : i + LOTE]
+        try:
+            client.table(tabela).upsert(lote, on_conflict=pk).execute()
+            resultado["enviados"] += len(lote)
+            if log_fn:
+                log_fn(f"  Lote {i // LOTE + 1}: {len(lote)} registros enviados")
+        except Exception as e:
+            resultado["erros"] += len(lote)
+            if log_fn:
+                log_fn(f"  [ERRO] Lote {i // LOTE + 1}: {e}")
+    return resultado
+
+
+def _serializar(rec: dict) -> dict:
+    """Converte tipos Oracle (Decimal, date) para tipos JSON-serializáveis."""
+    linha = {}
+    for k, v in rec.items():
+        if hasattr(v, "strftime"):
+            v = v.isoformat() if hasattr(v, "hour") else str(v)
+        elif hasattr(v, "__float__") and not isinstance(v, (int, float, bool)):
+            v = float(v)
+        linha[k] = v
+    return linha
+
+
+def upsert_fichamedica(registros: list[dict], log_fn=None) -> dict:
+    client = _get_client()
+    if log_fn:
+        log_fn(f"  Preparando {len(registros)} registros de ficha médica...")
+    linhas = [_serializar(r) | {"updated_at": datetime.now(timezone.utc).isoformat()} for r in registros]
+    return _upsert_lotes(client, "stg_fichamedica", "codintfunc,datafichamed,codocorr", linhas, log_fn)
+
+
+def upsert_fichamedica_exames(registros: list[dict], log_fn=None) -> dict:
+    client = _get_client()
+    if log_fn:
+        log_fn(f"  Preparando {len(registros)} registros de exames...")
+    linhas = [_serializar(r) | {"updated_at": datetime.now(timezone.utc).isoformat()} for r in registros]
+    return _upsert_lotes(client, "stg_fichamedica_exames", "codintfunc,datafichamed,codtipoexa", linhas, log_fn)
+
+
+def upsert_afastamentos(registros: list[dict], log_fn=None) -> dict:
+    client = _get_client()
+    if log_fn:
+        log_fn(f"  Preparando {len(registros)} registros de afastamentos...")
+    linhas = [_serializar(r) | {"updated_at": datetime.now(timezone.utc).isoformat()} for r in registros]
+    return _upsert_lotes(client, "stg_afastamentos", "codintfunc,dtafast", linhas, log_fn)
+
+
 def upsert_generico(
     nome_supabase: str,
     pk: str,
