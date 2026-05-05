@@ -46,12 +46,18 @@ def listar_colunas(nome_oracle: str) -> list[dict]:
             ]
 
 
-def buscar_funcionarios() -> list[dict]:
+def buscar_funcionarios(desde: str | None = None) -> list[dict]:
     """
-    Retorna todos os funcionários (empresa=1, filial=1) com JOIN de imagens.
-    Campo IMAGEM é retornado como bytes ou None.
+    Retorna funcionários (empresa=1, filial=1) com JOIN de imagens.
+    Se `desde` informado, filtra por DTADMFUNC >= desde (novos admitidos).
     """
-    sql = """
+    where = "WHERE f.CODIGOEMPRESA = 1 AND f.CODIGOFL = 1"
+    params = {}
+    if desde:
+        where += " AND f.DTADMFUNC >= TO_DATE(:desde, 'YYYY-MM-DD')"
+        params["desde"] = desde
+
+    sql = f"""
         SELECT
             f.CODINTFUNC,
             f.CODFUNC,
@@ -65,8 +71,7 @@ def buscar_funcionarios() -> list[dict]:
             i.IMAGEM
         FROM VW_FUNCIONARIOS f
         LEFT JOIN FLP_FUNCIONARIOS_IMAGENS i ON i.CODINTFUNC = f.CODINTFUNC
-        WHERE f.CODIGOEMPRESA = 1
-          AND f.CODIGOFL = 1
+        {where}
         ORDER BY f.NOMEFUNC
     """
     with _get_conn() as conn:

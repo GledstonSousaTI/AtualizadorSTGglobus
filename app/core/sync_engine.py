@@ -42,13 +42,23 @@ def _log(msg: str, callback=None):
 
 
 def sincronizar_funcionarios(log_fn=None) -> dict:
-    _log("Iniciando sync: funcionarios (Oracle -> Supabase)", log_fn)
+    desde = config_manager.get_ultimo_sync("funcionarios")
+    if desde:
+        _log(f"Iniciando sync incremental: funcionarios — desde {desde}", log_fn)
+    else:
+        _log("Iniciando sync completo: funcionarios (primeiro sync)", log_fn)
+
     try:
-        registros = globus_reader.buscar_funcionarios()
-        _log(f"  {len(registros)} funcionários ativos lidos do Oracle", log_fn)
+        registros = globus_reader.buscar_funcionarios(desde=desde)
+        _log(f"  {len(registros)} funcionários lidos do Oracle", log_fn)
     except Exception as e:
         _log(f"[ERRO] Leitura Oracle: {e}", log_fn)
         return {"tabela": "funcionarios", "status": "erro", "detalhe": str(e)}
+
+    if not registros:
+        _log("  Nenhum funcionário novo. Sync ignorado.", log_fn)
+        config_manager.salvar_ultimo_sync("funcionarios", datetime.now().strftime("%Y-%m-%d"))
+        return {"tabela": "funcionarios", "status": "ok", "total": 0, "enviados": 0, "erros": 0, "sem_foto": 0}
 
     try:
         resultado = supabase_writer.upsert_funcionarios(registros, log_fn=log_fn)
@@ -57,6 +67,8 @@ def sincronizar_funcionarios(log_fn=None) -> dict:
             f"{resultado['erros']} erros | {resultado['sem_foto']} sem foto",
             log_fn,
         )
+        if resultado["erros"] == 0:
+            config_manager.salvar_ultimo_sync("funcionarios", datetime.now().strftime("%Y-%m-%d"))
         return {"tabela": "funcionarios", "status": "ok", **resultado}
     except Exception as e:
         _log(f"[ERRO] Escrita Supabase: {e}", log_fn)
