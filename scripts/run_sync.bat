@@ -8,7 +8,7 @@ echo ============================================
 echo  Inicio: %DATE% %TIME%
 echo.
 
-C:\Users\gledston.sousa\AppData\Local\Programs\Python\Python313\python.exe -m app.core.sync_engine %*
+python -m app.core.sync_engine %*
 
 echo.
 echo  Fim: %DATE% %TIME%
